@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+		<link rel="stylesheet" href="ol.css">
+		<script src="ol.js"></script>
+		<link rel="stylesheet" href="css/map.css">
+	</head>
+	<body>
+		<div id="mapcon">
+			
+		</div>
+		<form style="position: absolute;left: 200px;z-index: 999;color: blue;">
+		    <label>半径大小</label>
+		    <input id="radius" type="range" min="1" max="50" step="1" value="20" />
+		    <label>模糊大小</label>
+		    <input id="blur" type="range" min="1" max="50" step="1" value="25" />
+		</form>
+		<form id="types">
+		    
+		    <select id="type" >
+		      <option value="Point">Point</option>
+		      <option value="LineString">LineString</option>
+		      <option value="Polygon">Polygon</option>
+		      <option value="Circle">Circle</option>
+			  <option value="Square">Square</option>
+			  <option value="Box">Box</option>
+			  <option value="None">None</option>
+		    </select>
+		</form>
+		<script>
+			let vectorSource = new ol.source.Vector();
+			// 矢量地图
+			let vectorLayer = new ol.layer.Vector({
+			    source: vectorSource,
+				 style: new ol.style.Style({
+				                // 将点设置成圆形样式
+				                image: new ol.style.Circle({
+				                    // 点的颜色
+				                    fill: new ol.style.Fill({
+				                        color: '#F00'
+				                    }),
+				                    // 圆形半径
+				                    radius: 5
+				                }),
+				                // 线样式
+				                stroke: new ol.style.Stroke({
+				                    color: '#0F0',
+				                    lineCap: 'round',       // 设置线的两端为圆头
+				                    width: 5                
+				                }),
+				                // 填充样式
+				                fill: new ol.style.Fill({
+				                    color: '#00F'
+				                })
+				            })
+			});
+			const map=new ol.Map({
+			   target:'mapcon',
+			   layers:[
+				   new ol.layer.Tile({
+				       title: "高德地图",
+				       source: new ol.source.XYZ({
+				           url: 'http://wprd0{1-4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&style=7&x={x}&y={y}&z={z}',
+				           wrapX: false
+				       })
+				   }),
+				   vectorLayer
+			   ],
+			   view:new ol.View({
+			    center:[21,9],
+			    projection:'EPSG:3857',
+			    zoom:4
+			   }),
+			   controls: ol.control.defaults().extend([    // 往地图增加控件
+			                    
+			                   new ol.control.ZoomToExtent({  //特定位置控件
+			                       extent:[
+			                           12491681, 2741332,//矩形左上角坐标
+			                           12776726, 2554717 //矩形右下角坐标
+			                       ],//点击跳跃到沧州位置
+			                   
+			                   }),
+			                   new ol.control.FullScreen(), //全屏控件
+			                   new ol.control.MousePosition(),//坐标拾取控件
+			                   
+			                   new ol.control.ScaleLine(), //比例尺控件
+			               ])
+			})
+			
+			// 开始做热力图相关功能
+			let blur = document.getElementById("blur");
+			let radius = document.getElementById("radius");
+			
+			var wandaVector = new ol.source.Vector({
+			    url: "wanda.geojson",
+			    format: new ol.format.GeoJSON()
+			});
+			//定义热力图图层
+			let vector = new ol.layer.Heatmap({
+			    source: wandaVector,
+			    blur: parseInt(blur.value, 10),
+			    radius: parseInt(radius.value, 10),
+			    });
+			    
+			// 模糊按钮的回调函数
+			let blurHandler = function (){
+			    vector.setBlur(parseInt(blur.value, 10));
+			};
+			blur.addEventListener("input", blurHandler);
+			blur.addEventListener("change", blurHandler);
+			
+			// 半径按钮的回调函数
+			let radiusHandler = function () {
+			    vector.setRadius(parseInt( radius.value, 10));
+			};
+			radius.addEventListener("input", radiusHandler);
+			radius.addEventListener("change", radiusHandler);
+			map.addLayer(vector);
+			
+			
+			
+			//这里是绘制点线面
+			let typeSelect = document.getElementById('type');
+			let draw;
+			function addInteraction(){
+			    let type = typeSelect.value;
+			    if(type !== 'None'){
+			        let geometryFunction;
+			        switch(type){   
+			            case "Square": 
+			                type = 'Circle';
+			                // 生成规则的四边形的图形函数
+			                geometryFunction = ol.interaction.Draw.createRegularPolygon(4);
+			                break;
+			            case 'Box':
+			                type = 'Circle';
+			                // 生成盒形状的图形函数
+			                geometryFunction = ol.interaction.Draw.createBox();
+			                break;
+			            default:break;
+			        }
+			        
+			        // 初始化Draw绘图控件
+			        
+			        draw = new ol.interaction.Draw({
+			            source: vectorSource,
+			            type: type,
+			            geometryFunction: geometryFunction
+			        });
+			        // 将Draw绘图控件加入Map对象
+			        map.addInteraction(draw);
+			    }
+			}
+					 
+			typeSelect.addEventListener('change', () => {
+			    // 移除Draw绘图控件
+			    map.removeInteraction(draw);
+			    addInteraction();
+			});
+					 
+			addInteraction();
+		</script>
+	</body>
+</html>
